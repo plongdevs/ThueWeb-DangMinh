@@ -398,7 +398,7 @@
 <div class="footer-tag">FakeLag KEY SYSTEM — AUTHORIZED ACCESS ONLY</div>
 
 <script>
-  const WORKER_URL = "https://minhmodvip.phamlongsoftware.workers.dev"; // ← Điền Worker URL
+  const WORKER_URL = "https://minhmodvipp.workers.dev"; // ← Điền Worker URL
 
   let selectedType = 12;
   let finalUrl     = "";
