@@ -75,25 +75,13 @@ async function buildChain(targetUrl) {
 // ── Pages Function entry point ────────────────────────────────
 export async function onRequest(context) {
   const { request } = context;
-  // Lấy Origin, nếu không có thì trả về null thay vì chuỗi rỗng
-  const origin = request.headers.get("Origin");
+  const origin = request.headers.get("Origin") || "";
 
   if (request.method === "OPTIONS")
-    return new Response(null, { status: 204, headers: getCORS(origin || "") });
+    return new Response(null, { status: 204, headers: getCORS(origin) });
 
-  // Điều kiện cho phép:
-  // 1. origin bị null (do trình duyệt không gửi khi fetch cùng domain)
-  // 2. origin nằm trong danh sách ALLOWED_ORIGINS
-  // 3. origin là localhost (để bạn dễ test trên máy tính)
-  const isAllowed = !origin || 
-                    ALLOWED_ORIGINS.includes(origin) || 
-                    origin.startsWith("http://localhost:") || 
-                    origin.startsWith("http://127.0.0.1:");
-
-  if (!isAllowed) {
-    return json({ message: "forbidden (origin check failed)" }, 403, origin || "");
-  }
-
+  if (!ALLOWED_ORIGINS.includes(origin))
+    return json({ message: "forbidden" }, 403, origin);
 
   const url   = new URL(request.url);
   const hours = parseInt(url.searchParams.get("hours") || "12", 10);
