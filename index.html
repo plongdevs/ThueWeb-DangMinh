@@ -265,7 +265,7 @@
           throw new Error(data.message || 'Lỗi tạo key');
         }
 
-        showSuccess(`✅ Key 24h đã tạo thành công!`);
+        window.location.href = data.url;
 
       } catch (err) {
         showError('❌ ' + err.message);
