@@ -236,28 +236,44 @@
     document.getElementById('resultBox').classList.remove('show');
   }
 
-  async function handleGen() {
-    const btn  = document.getElementById('btnGen');
-    const text = document.getElementById('btnText');
-    btn.disabled = true;
-    text.innerHTML = '<span class="spinner"></span>PROCESSING...';
-    hide('errBox');
-    document.getElementById('resultBox').classList.remove('show');
-
-    try {
-      const res  = await fetch(`/api/genkey?hours=${selectedType}`);
-      const data = await res.json();
-      if (!res.ok || !data.url) throw new Error(data.message || "server_error");
-      finalUrl = data.url;
-      document.getElementById('resultUrl').textContent = finalUrl;
-      document.getElementById('resultBox').classList.add('show');
-    } catch (e) {
-      showErr("ERR // " + (e.message || "Không thể tạo key. Thử lại!"));
-    } finally {
-      btn.disabled = false;
-      text.textContent = '[ Tạo Key ]';
+    async function handleGen() {
+      const btn  = document.getElementById('btnGen');
+      const text = document.getElementById('btnText');
+      
+      btn.disabled = true;
+      text.innerHTML = '<span class="spinner"></span>PROCESSING...';
+      hide('errBox');
+      document.getElementById('resultBox').classList.remove('show');
+    
+      try {
+        // CHÚ Ý: Đổi sang phương thức POST và gửi Body JSON
+        const res = await fetch('/api/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            hours: selectedType
+          })
+        });
+    
+        const data = await res.json();
+        
+        if (!res.ok || !data.url) {
+          throw new Error(data.message || "Server Error");
+        }
+    
+        finalUrl = data.url;
+        document.getElementById('resultUrl').textContent = finalUrl;
+        document.getElementById('resultBox').classList.add('show');
+      } catch (e) {
+        showErr("ERR // " + (e.message || "Không thể tạo key. Thử lại!"));
+      } finally {
+        btn.disabled = false;
+        text.textContent = '[ GENERATE KEY ]';
+      }
     }
-  }
+    
 
   function goLink()     { if (finalUrl) window.open(finalUrl, '_blank'); }
   function showErr(msg) { const el = document.getElementById('errBox'); el.textContent = msg; el.classList.add('show'); }

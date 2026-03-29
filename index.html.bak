@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FakeLag — Key System</title>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <style>
   :root {
     --bg:      #08090e;
@@ -116,7 +115,7 @@
 
   .label { font-family: 'Fira Code', monospace; font-size: 0.6rem; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px; display: block; }
 
-  .key-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
+  .key-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 28px; }
 
   .key-opt {
     border: 1px solid rgba(255,140,0,0.15);
@@ -145,14 +144,6 @@
     border: 1px solid rgba(255,140,0,0.2); color: var(--muted); position: relative; z-index: 1; transition: all 0.2s;
   }
   .key-opt.active .badge { border-color: rgba(255,140,0,0.4); color: var(--accent); }
-
-  /* Style cho khung chứa captcha */
-  .captcha-container {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 20px;
-    min-height: 65px; /* Giữ layout không bị giật khi load widget */
-  }
 
   .btn-gen {
     width: 100%; padding: 16px; background: transparent;
@@ -214,10 +205,6 @@
       </div>
     </div>
 
-    <div class="captcha-container">
-      <div class="cf-turnstile" data-sitekey="0x4AAAAAACxjd8JuKoEiEZ0Y" data-theme="dark"></div>
-    </div>
-
     <button class="btn-gen" id="btnGen" onclick="handleGen()">
       <span id="btnText">[ GENERATE KEY ]</span>
     </button>
@@ -249,45 +236,44 @@
     document.getElementById('resultBox').classList.remove('show');
   }
 
-  async function handleGen() {
-    // 1. Lấy token từ Turnstile widget
-    const cfToken = document.querySelector('[name="cf-turnstile-response"]')?.value;
+async function handleGen() {
+  const btn  = document.getElementById('btnGen');
+  const text = document.getElementById('btnText');
+  
+  btn.disabled = true;
+  text.innerHTML = '<span class="spinner"></span>PROCESSING...';
+  hide('errBox');
+  document.getElementById('resultBox').classList.remove('show');
 
-    // 2. Kiểm tra xem người dùng đã giải CAPTCHA chưa
-    if (!cfToken) {
-      showErr("ERR // Vui lòng xác nhận CAPTCHA trước!");
-      return;
+  try {
+    // CHÚ Ý: Đổi sang phương thức POST và gửi Body JSON
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        hours: selectedType
+      })
+    });
+
+    const data = await res.json();
+    
+    if (!res.ok || !data.url) {
+      throw new Error(data.message || "Server Error");
     }
 
-    const btn  = document.getElementById('btnGen');
-    const text = document.getElementById('btnText');
-    btn.disabled = true;
-    text.innerHTML = '<span class="spinner"></span>PROCESSING...';
-    hide('errBox');
-    document.getElementById('resultBox').classList.remove('show');
-
-    try {
-      // 3. Gửi kèm token lên server (qua query string hoặc body tùy backend của bạn, ở đây mình nối vào URL)
-      const res  = await fetch(`/api/genkey?hours=${selectedType}&token=${encodeURIComponent(cfToken)}`);
-      const data = await res.json();
-      
-      if (!res.ok || !data.url) throw new Error(data.message || "server_error");
-      
-      finalUrl = data.url;
-      document.getElementById('resultUrl').textContent = finalUrl;
-      document.getElementById('resultBox').classList.add('show');
-    } catch (e) {
-      showErr("ERR // " + (e.message || "Không thể tạo key. Thử lại!"));
-      
-      // 4. Reset lại CAPTCHA nếu có lỗi (để user làm lại)
-      if (typeof turnstile !== 'undefined') {
-        turnstile.reset();
-      }
-    } finally {
-      btn.disabled = false;
-      text.textContent = '[ GENERATE KEY ]';
-    }
+    finalUrl = data.url;
+    document.getElementById('resultUrl').textContent = finalUrl;
+    document.getElementById('resultBox').classList.add('show');
+  } catch (e) {
+    showErr("ERR // " + (e.message || "Không thể tạo key. Thử lại!"));
+  } finally {
+    btn.disabled = false;
+    text.textContent = '[ GENERATE KEY ]';
   }
+}
+
 
   function goLink()     { if (finalUrl) window.open(finalUrl, '_blank'); }
   function showErr(msg) { const el = document.getElementById('errBox'); el.textContent = msg; el.classList.add('show'); }
