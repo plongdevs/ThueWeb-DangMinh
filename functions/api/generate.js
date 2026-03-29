@@ -118,14 +118,10 @@ export async function onRequest(context) {
 
   try {
     const body = await request.json();
-    const { token, hours, keyType } = body;
-    const h = parseInt(hours) || parseInt(keyType) || 12;
+    const { hours, keyType } = body;
+    const h = parseInt(hours) || parseInt(keyType) || 24;
 
-    if (!token) return new Response(JSON.stringify({ message: "Thiếu captcha token!" }), { status: 400, headers: corsHeaders });
     if (h !== 12 && h !== 24) return new Response(JSON.stringify({ message: "hours phải là 12 hoặc 24" }), { status: 400, headers: corsHeaders });
-
-    const isValid = await verifyTurnstile(token);
-    if (!isValid) return new Response(JSON.stringify({ message: "Captcha không hợp lệ!" }), { status: 403, headers: corsHeaders });
 
     const config = await loadConfig();
     if (!config) return new Response(JSON.stringify({ message: "Không đọc được config từ Firebase!" }), { status: 500, headers: corsHeaders });
