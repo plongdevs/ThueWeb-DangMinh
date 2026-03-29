@@ -2,9 +2,8 @@
 // File: functions/api/generate.js
 
 const CONFIG = {
-  FIREBASE_URL: "https://minhmodvipp-default-rtdb.asia-southeast1.firebasedatabase.app",
-  FIREBASE_SECRET: "FKi1wVhjM7ghLnWrAXi04TIRM1CkeuS9E3ymzGpo",
-  TURNSTILE_SECRET: "bỏ"
+  FIREBASE_URL: "https://minhmodvippp-default-rtdb.asia-southeast1.firebasedatabase.app",
+  FIREBASE_SECRET: "QebyvSY4drgbk1f0xvzML9qKPe0GZhEV9b7XupNp"
 };
 
 const URL_TEMPLATES = {
@@ -12,6 +11,7 @@ const URL_TEMPLATES = {
   'Link4m': (token, url) => `https://link4m.co/api-shorten/v2?api=${token}&url=${encodeURIComponent(url)}`,
   'YeuMoney': (token, url) => `https://yeumoney.com/QL_api.php?token=${token}&format=json&url=${encodeURIComponent(url)}`,
   'Traffic1M': (token, url) => `https://traffic1m.net/apidevelop?api=${token}&url=${encodeURIComponent(url)}`,
+    'Traffic68': (token, url) => `https://traffic68.com/api/quicklink/api?api=${token}&url=${encodeURIComponent(url)}&alias=`,
   'NhapMa': (token, url) => `https://service.nhapma.com/api?token=${token}&url=${encodeURIComponent(url)}&alias=`
 };
 
@@ -91,17 +91,6 @@ async function shortenUrl(provider, targetUrl) {
   }
   
   return shortUrl;
-}
-
-async function verifyTurnstile(token) {
-  const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `secret=${CONFIG.TURNSTILE_SECRET}&response=${token}`
-  });
-  
-  const data = await res.json();
-  return data.success;
 }
 
 export async function onRequest(context) {
