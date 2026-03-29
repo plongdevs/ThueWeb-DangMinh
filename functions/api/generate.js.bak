@@ -3,12 +3,12 @@
 
 const CONFIG = {
   FIREBASE_URL: "https://minhmodvipp-default-rtdb.asia-southeast1.firebasedatabase.app",
-  FIREBASE_SECRET: "FKi1wVhjM7ghLnWrAXi04TIRM1CkeuS9E3ymzGpo"
-  // Đã gỡ bỏ TURNSTILE_SECRET
+  FIREBASE_SECRET: "FKi1wVhjM7ghLnWrAXi04TIRM1CkeuS9E3ymzGpo",
+  TURNSTILE_SECRET: "FKi1wVhjM7ghLnWrAXi04TIRM1CkeuS9E3ymzGpo"
 };
 
 const URL_TEMPLATES = {
-  'Taplayma': (url) => `https://api.taplayma.com/api?token=&url=${encodeURIComponent(url)}&alias=`, // Lưu ý: Cần truyền token api của provider nếu có
+  'Taplayma': (token, url) => `https://api.taplayma.com/api?token=${token}&url=${encodeURIComponent(url)}&alias=`,
   'Link4m': (token, url) => `https://link4m.co/api-shorten/v2?api=${token}&url=${encodeURIComponent(url)}`,
   'YeuMoney': (token, url) => `https://yeumoney.com/QL_api.php?token=${token}&format=json&url=${encodeURIComponent(url)}`,
   'Traffic1M': (token, url) => `https://traffic1m.net/apidevelop?api=${token}&url=${encodeURIComponent(url)}`,
@@ -89,7 +89,16 @@ async function shortenUrl(provider, targetUrl) {
   return shortUrl;
 }
 
-// Gỡ bỏ hoàn toàn hàm verifyTurnstile
+async function verifyTurnstile(token) {
+  const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `secret=${CONFIG.TURNSTILE_SECRET}&response=${token}`
+  });
+  
+  const data = await res.json();
+  return data.success;
+}
 
 // Cloudflare Pages Function entry point
 export async function onRequest(context) {
@@ -116,14 +125,29 @@ export async function onRequest(context) {
 
   try {
     const body = await request.json();
-    // Bỏ check token ở đây
-    const { hours, keyType } = body;
+    const { token, hours, keyType } = body;
     const h = parseInt(hours) || parseInt(keyType) || 12;
+
+    if (!token) {
+      return new Response(
+        JSON.stringify({ message: "Thiếu captcha token!" }), 
+        { status: 400, headers: corsHeaders }
+      );
+    }
 
     if (h !== 12 && h !== 24) {
       return new Response(
         JSON.stringify({ message: "hours phải là 12 hoặc 24" }), 
         { status: 400, headers: corsHeaders }
+      );
+    }
+
+    // Verify Turnstile
+    const isValid = await verifyTurnstile(token);
+    if (!isValid) {
+      return new Response(
+        JSON.stringify({ message: "Captcha không hợp lệ!" }), 
+        { status: 403, headers: corsHeaders }
       );
     }
 
