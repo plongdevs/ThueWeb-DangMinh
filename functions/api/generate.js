@@ -4,11 +4,10 @@
 const CONFIG = {
   FIREBASE_URL: "https://minhmodvipp-default-rtdb.asia-southeast1.firebasedatabase.app",
   FIREBASE_SECRET: "FKi1wVhjM7ghLnWrAXi04TIRM1CkeuS9E3ymzGpo"
-  // Đã gỡ bỏ TURNSTILE_SECRET
 };
 
 const URL_TEMPLATES = {
-  'Taplayma': (url) => `https://api.taplayma.com/api?token=&url=${encodeURIComponent(url)}&alias=`, // Lưu ý: Cần truyền token api của provider nếu có
+  'Taplayma': (token, url) => `https://api.taplayma.com/api?token=${token}&url=${encodeURIComponent(url)}&alias=`,
   'Link4m': (token, url) => `https://link4m.co/api-shorten/v2?api=${token}&url=${encodeURIComponent(url)}`,
   'YeuMoney': (token, url) => `https://yeumoney.com/QL_api.php?token=${token}&format=json&url=${encodeURIComponent(url)}`,
   'Traffic1M': (token, url) => `https://traffic1m.net/apidevelop?api=${token}&url=${encodeURIComponent(url)}`,
@@ -60,6 +59,13 @@ async function loadConfig() {
   return await res.json();
 }
 
+// Firebase trả object {"0":{...}} thay vì array - cần convert
+function toArray(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  return Object.values(val);
+}
+
 async function shortenUrl(provider, targetUrl) {
   const template = URL_TEMPLATES[provider.Kind];
   if (!template) throw new Error(`Unknown provider: ${provider.Kind}`);
@@ -75,11 +81,10 @@ async function shortenUrl(provider, targetUrl) {
   
   const data = await res.json();
   
-  const shortUrl = data.shortenedUr1 || 
+  const shortUrl = data.shortenedUrl ||   // fix typo: was shortenedUr1
                   data.shortened || 
                   data.short_url || 
                   data.url || 
-                  data.shortenedUrl ||
                   data.link;
                   
   if (!shortUrl) {
@@ -89,13 +94,10 @@ async function shortenUrl(provider, targetUrl) {
   return shortUrl;
 }
 
-// Gỡ bỏ hoàn toàn hàm verifyTurnstile
-
 // Cloudflare Pages Function entry point
 export async function onRequest(context) {
   const request = context.request;
   
-  // CORS headers
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -116,7 +118,6 @@ export async function onRequest(context) {
 
   try {
     const body = await request.json();
-    // Bỏ check token ở đây
     const { hours, keyType } = body;
     const h = parseInt(hours) || parseInt(keyType) || 12;
 
@@ -136,9 +137,9 @@ export async function onRequest(context) {
       );
     }
 
-    // Check providers
-    const providers12h = (config.LinkProviders12h || []).filter(p => p.Enabled && p.Token);
-    const providers24h = (config.LinkProviders24h || []).filter(p => p.Enabled && p.Token);
+    // Check providers - dùng toArray() để handle Firebase object format
+    const providers12h = toArray(config.LinkProviders12h).filter(p => p && p.Enabled && p.Token);
+    const providers24h = toArray(config.LinkProviders24h).filter(p => p && p.Enabled && p.Token);
 
     if (h === 12 && providers12h.length === 0) {
       return new Response(
