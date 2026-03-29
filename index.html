@@ -221,11 +221,6 @@
 
     <div class="divider"></div>
 
-    <div class="input-group">
-      <label class="input-label">Nhập Link của bạn</label>
-      <input type="url" class="input-field" id="linkInput" placeholder="https://example.com/..." />
-    </div>
-
     <button class="btn-gen" id="btnGen" onclick="generate()">
       <span class="btn-text">[ TẠO KEY 24H ]</span>
     </button>
@@ -238,22 +233,11 @@
     const selectedHours = 24;
 
     async function generate() {
-      const linkInput = document.getElementById('linkInput');
       const btn = document.getElementById('btnGen');
       const msgBox = document.getElementById('messageBox');
 
       msgBox.className = 'message-box';
       msgBox.textContent = '';
-
-      if (!linkInput.value.trim()) {
-        showError('Vui lòng nhập link của bạn!');
-        return;
-      }
-
-      if (!isValidUrl(linkInput.value)) {
-        showError('Link không hợp lệ!');
-        return;
-      }
 
       btn.disabled = true;
       btn.innerHTML = '<span class="btn-spinner"></span> ĐANG XỬ LÝ...';
@@ -262,7 +246,7 @@
         const res = await fetch(API_ENDPOINT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ link: linkInput.value, hours: selectedHours })
+          body: JSON.stringify({ hours: selectedHours })
         });
 
         const text = await res.text();
@@ -283,22 +267,12 @@
         }
 
         showSuccess(`✅ Key 24h đã tạo thành công!`);
-        linkInput.value = '';
 
       } catch (err) {
         showError('❌ ' + err.message);
       } finally {
         btn.disabled = false;
         btn.innerHTML = '<span class="btn-text">[ TẠO KEY 24H ]</span>';
-      }
-    }
-
-    function isValidUrl(string) {
-      try {
-        new URL(string);
-        return true;
-      } catch (_) {
-        return false;
       }
     }
 
