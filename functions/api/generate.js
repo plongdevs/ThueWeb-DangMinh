@@ -3,7 +3,8 @@
 
 const CONFIG = {
   FIREBASE_URL: "https://minhmodvipp-default-rtdb.asia-southeast1.firebasedatabase.app",
-  FIREBASE_SECRET: "FKi1wVhjM7ghLnWrAXi04TIRM1CkeuS9E3ymzGpo"
+  FIREBASE_SECRET: "FKi1wVhjM7ghLnWrAXi04TIRM1CkeuS9E3ymzGpo",
+  TURNSTILE_SECRET: "bỏ"
 };
 
 const URL_TEMPLATES = {
@@ -25,7 +26,7 @@ function generateKey(keyFormat) {
   const charset = charsetMap[keyFormat.Charset] || charsetMap['AZ09'];
   const segments = keyFormat.Segments || 4;
   const charsPerSeg = keyFormat.CharsPerSegment || 4;
-  const prefix = keyFormat.Prefix || 'Minh-';
+  const prefix = keyFormat.Prefix || 'GB';
 
   let key = prefix;
   for (let i = 0; i < segments; i++) {
@@ -38,13 +39,17 @@ function generateKey(keyFormat) {
   return key;
 }
 
+// --- HÀM TÍNH THỜI GIAN ĐÃ FIX UTC+7 ---
 function calculateExpiration(hours) {
   const now = new Date();
-  const expiry = new Date(now.getTime() + hours * 60 * 60 * 1000);
-  const yyyy = expiry.getFullYear();
-  const mm = String(expiry.getMonth() + 1).padStart(2, '0');
-  const dd = String(expiry.getDate()).padStart(2, '0');
-  const hh = String(expiry.getHours()).padStart(2, '0');
+  // Lấy timestamp hiện tại, cộng thêm số giờ của Key + 7 giờ (múi giờ VN)
+  const vnTime = new Date(now.getTime() + (hours + 7) * 60 * 60 * 1000);
+
+  // Sử dụng getUTC để lấy dữ liệu từ mốc thời gian đã được offset +7
+  const yyyy = vnTime.getUTCFullYear();
+  const mm = String(vnTime.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(vnTime.getUTCDate()).padStart(2, '0');
+  const hh = String(vnTime.getUTCHours()).padStart(2, '0');
 
   return {
     ExpiredDay: `${dd}/${mm}/${yyyy} ${hh}:00`,
@@ -57,13 +62,6 @@ async function loadConfig() {
   const res = await fetch(url);
   if (!res.ok) throw new Error('Cannot load config from Firebase');
   return await res.json();
-}
-
-// Firebase trả object {"0":{...}} thay vì array - cần convert
-function toArray(val) {
-  if (!val) return [];
-  if (Array.isArray(val)) return val;
-  return Object.values(val);
 }
 
 async function shortenUrl(provider, targetUrl) {
@@ -81,10 +79,11 @@ async function shortenUrl(provider, targetUrl) {
   
   const data = await res.json();
   
-  const shortUrl = data.shortenedUrl ||   // fix typo: was shortenedUr1
+  const shortUrl = data.shortenedUr1 || 
                   data.shortened || 
                   data.short_url || 
                   data.url || 
+                  data.shortenedUrl ||
                   data.link;
                   
   if (!shortUrl) {
@@ -94,10 +93,19 @@ async function shortenUrl(provider, targetUrl) {
   return shortUrl;
 }
 
-// Cloudflare Pages Function entry point
+async function verifyTurnstile(token) {
+  const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `secret=${CONFIG.TURNSTILE_SECRET}&response=${token}`
+  });
+  
+  const data = await res.json();
+  return data.success;
+}
+
 export async function onRequest(context) {
   const request = context.request;
-  
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -105,132 +113,70 @@ export async function onRequest(context) {
     "Content-Type": "application/json"
   };
 
-  if (request.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders });
-  }
-
-  if (request.method !== "POST") {
-    return new Response(
-      JSON.stringify({ message: "Method not allowed" }), 
-      { status: 405, headers: corsHeaders }
-    );
-  }
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+  if (request.method !== "POST") return new Response(JSON.stringify({ message: "Method not allowed" }), { status: 405, headers: corsHeaders });
 
   try {
     const body = await request.json();
-    const { hours, keyType } = body;
+    const { token, hours, keyType } = body;
     const h = parseInt(hours) || parseInt(keyType) || 12;
 
-    if (h !== 12 && h !== 24) {
-      return new Response(
-        JSON.stringify({ message: "hours phải là 12 hoặc 24" }), 
-        { status: 400, headers: corsHeaders }
-      );
-    }
+    if (!token) return new Response(JSON.stringify({ message: "Thiếu captcha token!" }), { status: 400, headers: corsHeaders });
+    if (h !== 12 && h !== 24) return new Response(JSON.stringify({ message: "hours phải là 12 hoặc 24" }), { status: 400, headers: corsHeaders });
 
-    // Load config
+    const isValid = await verifyTurnstile(token);
+    if (!isValid) return new Response(JSON.stringify({ message: "Captcha không hợp lệ!" }), { status: 403, headers: corsHeaders });
+
     const config = await loadConfig();
-    if (!config) {
-      return new Response(
-        JSON.stringify({ message: "Không đọc được config từ Firebase!" }), 
-        { status: 500, headers: corsHeaders }
-      );
-    }
+    if (!config) return new Response(JSON.stringify({ message: "Không đọc được config từ Firebase!" }), { status: 500, headers: corsHeaders });
 
-    // Check providers - dùng toArray() để handle Firebase object format
-    const providers12h = toArray(config.LinkProviders12h).filter(p => p && p.Enabled && p.Token);
-    const providers24h = toArray(config.LinkProviders24h).filter(p => p && p.Enabled && p.Token);
+    const providers12h = (config.LinkProviders12h || []).filter(p => p.Enabled && p.Token);
+    const providers24h = (config.LinkProviders24h || []).filter(p => p.Enabled && p.Token);
 
-    if (h === 12 && providers12h.length === 0) {
-      return new Response(
-        JSON.stringify({ message: "Chưa cấu hình provider 12h trong dash!" }), 
-        { status: 400, headers: corsHeaders }
-      );
-    }
+    if (h === 12 && providers12h.length === 0) return new Response(JSON.stringify({ message: "Chưa cấu hình provider 12h!" }), { status: 400, headers: corsHeaders });
+    if (h === 24 && providers24h.length === 0) return new Response(JSON.stringify({ message: "Chưa cấu hình provider 24h!" }), { status: 400, headers: corsHeaders });
 
-    if (h === 24 && providers24h.length === 0) {
-      return new Response(
-        JSON.stringify({ message: "Chưa cấu hình provider 24h trong dash!" }), 
-        { status: 400, headers: corsHeaders }
-      );
-    }
-
-    // Generate key
-    const keyFormat = config.KeyFormat || { Prefix: 'Minh', Segments: 4, CharsPerSegment: 4, Charset: 'AZ09' };
+    const keyFormat = config.KeyFormat || { Prefix: 'GB', Segments: 4, CharsPerSegment: 4, Charset: 'AZ09' };
     const key = generateKey(keyFormat);
-
-    // Calculate expiry
     const exp = calculateExpiration(h);
 
-    // Save to Firebase
+    // Lấy ngày tạo chuẩn VN để đồng bộ
+    const vnNow = new Date(new Date().getTime() + 7 * 60 * 60 * 1000);
+    const createdAt = vnNow.getUTCFullYear() + '-' + String(vnNow.getUTCMonth() + 1).padStart(2, '0') + '-' + String(vnNow.getUTCDate()).padStart(2, '0');
+
     const keyData = {
       ExpiredDay: exp.ExpiredDay,
       ExpiredDate: exp.ExpiredDate,
-      CreatedAt: new Date().toISOString().split('T')[0],
+      CreatedAt: createdAt,
       Type: "NORMAL",
       MaxDevices: config.MaxDevices || 1
     };
 
-    const saveRes = await fetch(
-      `${CONFIG.FIREBASE_URL}/ValidKeys/NormalKey/${key}.json?auth=${CONFIG.FIREBASE_SECRET}`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(keyData)
-      }
-    );
+    const saveRes = await fetch(`${CONFIG.FIREBASE_URL}/ValidKeys/NormalKey/${key}.json?auth=${CONFIG.FIREBASE_SECRET}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(keyData)
+    });
     
-    if (!saveRes.ok) {
-      return new Response(
-        JSON.stringify({ message: "Lỗi lưu key vào Firebase!" }), 
-        { status: 500, headers: corsHeaders }
-      );
-    }
+    if (!saveRes.ok) throw new Error("Lỗi lưu key vào Firebase!");
 
-    // Build callback URL
-    const callbackUrl = config.CallbackUrl || "https://minhmodvipp.pages.dev/getkey";
+    const callbackUrl = config.CallbackUrl || "https://gamebooster.thedev.me/getkey";
     const separator = callbackUrl.includes('?') ? '&' : '?';
     let finalUrl = `${callbackUrl}${separator}key=${encodeURIComponent(key)}`;
 
-    // Shorten URL chain
     let shortenedUrl = "";
-
     if (h === 12) {
-      const provider = providers12h[0];
-      shortenedUrl = await shortenUrl(provider, finalUrl);
+      shortenedUrl = await shortenUrl(providers12h[0], finalUrl);
     } else {
       const chain = [...providers24h].reverse();
       let currentUrl = finalUrl;
-      
-      for (const provider of chain) {
-        currentUrl = await shortenUrl(provider, currentUrl);
-      }
+      for (const provider of chain) currentUrl = await shortenUrl(provider, currentUrl);
       shortenedUrl = currentUrl;
     }
 
-    if (!shortenedUrl) {
-      return new Response(
-        JSON.stringify({ message: "Không tạo được link rút gọn!" }), 
-        { status: 500, headers: corsHeaders }
-      );
-    }
-
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        url: shortenedUrl,
-        key: key,
-        hours: h,
-        message: "Tạo key thành công!"
-      }), 
-      { status: 200, headers: corsHeaders }
-    );
+    return new Response(JSON.stringify({ success: true, url: shortenedUrl, key: key, hours: h }), { status: 200, headers: corsHeaders });
 
   } catch (e) {
-    console.error('Error:', e);
-    return new Response(
-      JSON.stringify({ message: "Server lỗi: " + e.message }), 
-      { status: 500, headers: corsHeaders }
-    );
+    return new Response(JSON.stringify({ message: "Server lỗi: " + e.message }), { status: 500, headers: corsHeaders });
   }
 }
