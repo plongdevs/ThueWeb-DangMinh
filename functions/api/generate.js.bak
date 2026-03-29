@@ -11,7 +11,7 @@ const URL_TEMPLATES = {
   'Link4m': (token, url) => `https://link4m.co/api-shorten/v2?api=${token}&url=${encodeURIComponent(url)}`,
   'YeuMoney': (token, url) => `https://yeumoney.com/QL_api.php?token=${token}&format=json&url=${encodeURIComponent(url)}`,
   'Traffic1M': (token, url) => `https://traffic1m.net/apidevelop?api=${token}&url=${encodeURIComponent(url)}`,
-  'Traffic68': (token, url) => `https://traffic68.com/api/quicklink/api?api=${token}&url=${encodeURIComponent(url)}&alias=`,
+    'Traffic68': (token, url) => `https://traffic68.com/api/quicklink/api?api=${token}&url=${encodeURIComponent(url)}&alias=`,
   'NhapMa': (token, url) => `https://service.nhapma.com/api?token=${token}&url=${encodeURIComponent(url)}&alias=`
 };
 
