@@ -2,9 +2,10 @@
 // File: functions/api/generate.js
 
 const CONFIG = {
-  FIREBASE_URL: "https://minhmodvippp-default-rtdb.asia-southeast1.firebasedatabase.app",
-  // LƯU Ý: Ở bản thực tế, hãy dùng context.env.FIREBASE_SECRET thay vì hardcode thế này nhé
-  FIREBASE_SECRET: "QebyvSY4drgbk1f0xvzML9qKPe0GZhEV9b7XupNp"
+  // Thông tin lấy từ file mẫu bạn gửi
+  FIREBASE_URL: "https://xp4mt9vqa82l-default-rtdb.asia-southeast1.firebasedatabase.app",
+  FIREBASE_SECRET: "kbAS9LzWorjvm4nQCwJF5yKY4fxJNwntUgO8m8wL",
+  TURNSTILE_SECRET: "0x4AAAAAACnr7X1Fvi5CEBfE9SUh3AnkA0c"
 };
 
 const URL_TEMPLATES = {
@@ -27,7 +28,7 @@ function generateKey(keyFormat) {
   const charset = charsetMap[keyFormat.Charset] || charsetMap['AZ09'];
   const segments = keyFormat.Segments || 4;
   const charsPerSeg = keyFormat.CharsPerSegment || 4;
-  const prefix = keyFormat.Prefix || 'UserMinhMod'; // Lấy mặc định theo config mới của bạn
+  const prefix = keyFormat.Prefix || 'GB';
 
   let key = prefix;
   for (let i = 0; i < segments; i++) {
@@ -42,7 +43,8 @@ function generateKey(keyFormat) {
 
 function calculateExpiration(hours) {
   const now = new Date();
-  const vnTime = new Date(now.getTime() + (hours + 7) * 60 * 60 * 1000); // Giờ VN (UTC+7)
+  // Giờ Việt Nam = Giờ hiện tại + 7 + số giờ Key có hiệu lực
+  const vnTime = new Date(now.getTime() + (hours + 7) * 60 * 60 * 1000);
 
   const yyyy = vnTime.getUTCFullYear();
   const mm = String(vnTime.getUTCMonth() + 1).padStart(2, '0');
@@ -58,35 +60,47 @@ function calculateExpiration(hours) {
 async function loadConfig() {
   const url = `${CONFIG.FIREBASE_URL}/Config.json?auth=${CONFIG.FIREBASE_SECRET}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error('Cannot load config from Firebase');
+  if (!res.ok) throw new Error('Không thể tải cấu hình từ Firebase');
   return await res.json();
 }
 
 async function shortenUrl(provider, targetUrl) {
   const template = URL_TEMPLATES[provider.Kind];
-  if (!template) throw new Error(`Unknown provider: ${provider.Kind}`);
+  if (!template) throw new Error(`Không hỗ trợ provider: ${provider.Kind}`);
 
   const apiUrl = template(provider.Token, targetUrl);
-
-  const res = await fetch(apiUrl, {
+  
+  const res = await fetch(apiUrl, { 
     method: 'GET',
     headers: { 'Accept': 'application/json' }
   });
-
-  if (!res.ok) throw new Error(`HTTP ${res.status} from ${provider.Kind}`);
-
+  
+  if (!res.ok) throw new Error(`Lỗi kết nối API rút gọn link (${res.status})`);
+  
   const data = await res.json();
-
-  const shortUrl = data.shortenedUr1 ||
-                  data.shortened ||
-                  data.short_url ||
-                  data.url ||
-                  data.shortenedUrl ||
-                  data.link;
-
-  if (!shortUrl) throw new Error(`No shortened URL in ${provider.Kind} response`);
-
+  
+  // Đã sửa lỗi chính tả shortenedUr1 thành shortenedUrl
+  const shortUrl = data.shortenedUrl || 
+                  data.shortened || 
+                  data.short_url || 
+                  data.url || 
+                  data.link ||
+                  data.shortenedUr1; 
+                  
+  if (!shortUrl) throw new Error(`Provider ${provider.Kind} không trả về link rút gọn!`);
+  
   return shortUrl;
+}
+
+async function verifyTurnstile(token) {
+  const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `secret=${CONFIG.TURNSTILE_SECRET}&response=${token}`
+  });
+  
+  const data = await res.json();
+  return data.success;
 }
 
 export async function onRequest(context) {
@@ -99,26 +113,39 @@ export async function onRequest(context) {
   };
 
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
-  if (request.method !== "POST") return new Response(JSON.stringify({ message: "Method not allowed" }), { status: 405, headers: corsHeaders });
+  if (request.method !== "POST") return new Response(JSON.stringify({ message: "Chỉ chấp nhận phương thức POST" }), { status: 405, headers: corsHeaders });
 
   try {
     const body = await request.json();
-    const h = parseInt(body.hours) || parseInt(body.keyType) || 5;
+    const { token, hours } = body;
+    // Lấy số giờ từ frontend, mặc định là 5 nếu không có
+    const h = parseInt(hours) || 5;
 
+    // 1. Kiểm tra Captcha
+    if (!token) return new Response(JSON.stringify({ message: "Vui lòng hoàn thành Captcha!" }), { status: 400, headers: corsHeaders });
+    const isValid = await verifyTurnstile(token);
+    if (!isValid) return new Response(JSON.stringify({ message: "Captcha không hợp lệ hoặc đã hết hạn!" }), { status: 403, headers: corsHeaders });
+
+    // 2. Load Config từ Firebase
     const config = await loadConfig();
-    if (!config) return new Response(JSON.stringify({ message: "Không đọc được config từ Firebase!" }), { status: 500, headers: corsHeaders });
+    if (!config) return new Response(JSON.stringify({ message: "Lỗi hệ thống: Không có config!" }), { status: 500, headers: corsHeaders });
 
-    // LƯỜI HACK: Lấy luôn data từ mảng LinkProviders12h bất kể client gửi lên mấy giờ =))
-    const providers = (config.LinkProviders12h || []).filter(p => p.Enabled && p.Token);
-
+    // 3. Cơ chế LAZY: Tìm provider tương ứng, nếu không thấy thì dùng tạm 12h
+    let providers = (config[`LinkProviders${h}h`] || []).filter(p => p.Enabled && p.Token);
+    
     if (providers.length === 0) {
-      return new Response(JSON.stringify({ message: "Chưa cấu hình provider 12h trên Firebase (hoặc đang bị disable)!" }), { status: 400, headers: corsHeaders });
+      console.log(`Fallback: Không tìm thấy config ${h}h, mượn tạm config 12h.`);
+      providers = (config.LinkProviders12h || []).filter(p => p.Enabled && p.Token);
     }
 
-    // Vẫn generate key và thời hạn dựa vào số giờ gửi lên (h = 5)
-    const keyFormat = config.KeyFormat || { Prefix: 'UserMinhMod', Segments: 4, CharsPerSegment: 4, Charset: 'AZ09' };
+    if (providers.length === 0) {
+      return new Response(JSON.stringify({ message: "Hệ thống chưa cấu hình Link Provider!" }), { status: 400, headers: corsHeaders });
+    }
+
+    // 4. Tạo Key và tính thời gian hết hạn (theo đúng số giờ h)
+    const keyFormat = config.KeyFormat || { Prefix: 'GB', Segments: 4, CharsPerSegment: 4, Charset: 'AZ09' };
     const key = generateKey(keyFormat);
-    const exp = calculateExpiration(h); 
+    const exp = calculateExpiration(h);
 
     const vnNow = new Date(new Date().getTime() + 7 * 60 * 60 * 1000);
     const createdAt = vnNow.getUTCFullYear() + '-' + String(vnNow.getUTCMonth() + 1).padStart(2, '0') + '-' + String(vnNow.getUTCDate()).padStart(2, '0');
@@ -131,24 +158,35 @@ export async function onRequest(context) {
       MaxDevices: config.MaxDevices || 1
     };
 
-    // Lưu key vào Firebase
+    // 5. Lưu Key vào nhánh NormalKey
     const saveRes = await fetch(`${CONFIG.FIREBASE_URL}/ValidKeys/NormalKey/${key}.json?auth=${CONFIG.FIREBASE_SECRET}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(keyData)
     });
+    
+    if (!saveRes.ok) throw new Error("Không thể lưu Key vào cơ sở dữ liệu!");
 
-    if (!saveRes.ok) throw new Error("Lỗi lưu key vào Firebase!");
-
-    // Lấy callback URL từ config hoặc set mặc định
+    // 6. Tạo link đích và thực hiện rút gọn link
     const callbackUrl = config.CallbackUrl || "https://gamebooster.thedev.me/getkey";
     const separator = callbackUrl.includes('?') ? '&' : '?';
     const finalUrl = `${callbackUrl}${separator}key=${encodeURIComponent(key)}`;
 
-    // Sử dụng config 12h (phần tử đầu tiên) để tạo link rút gọn
-    const shortenedUrl = await shortenUrl(providers[0], finalUrl);
+    let shortenedUrl = "";
+    // Nếu chỉ có 1 provider (như trường hợp 12h của bạn), rút gọn 1 lần
+    if (providers.length === 1) {
+      shortenedUrl = await shortenUrl(providers[0], finalUrl);
+    } else {
+      // Nếu có nhiều provider (như 24h), chạy vòng lặp rút gọn lồng nhau
+      let currentUrl = finalUrl;
+      const chain = [...providers].reverse();
+      for (const provider of chain) {
+        currentUrl = await shortenUrl(provider, currentUrl);
+      }
+      shortenedUrl = currentUrl;
+    }
 
-    // Trả về JSON hoàn chỉnh cho Frontend
+    // 7. Trả kết quả về cho giao diện
     return new Response(JSON.stringify({ 
       success: true, 
       url: shortenedUrl, 
@@ -157,6 +195,6 @@ export async function onRequest(context) {
     }), { status: 200, headers: corsHeaders });
 
   } catch (e) {
-    return new Response(JSON.stringify({ message: "Server lỗi: " + e.message }), { status: 500, headers: corsHeaders });
+    return new Response(JSON.stringify({ message: "Lỗi xử lý: " + e.message }), { status: 500, headers: corsHeaders });
   }
 }
