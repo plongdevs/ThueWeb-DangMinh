@@ -1,11 +1,6 @@
-// Cloudflare Pages Function - /api/generate
-// File: functions/api/generate.js
-
 const CONFIG = {
-  // Thông tin lấy từ file mẫu bạn gửi
-  FIREBASE_URL: "https://xp4mt9vqa82l-default-rtdb.asia-southeast1.firebasedatabase.app",
-  FIREBASE_SECRET: "kbAS9LzWorjvm4nQCwJF5yKY4fxJNwntUgO8m8wL",
-  TURNSTILE_SECRET: "0x4AAAAAACnr7X1Fvi5CEBfE9SUh3AnkA0c"
+  FIREBASE_URL: "https://minhmodvippp-default-rtdb.asia-southeast1.firebasedatabase.app",
+  FIREBASE_SECRET: "QebyvSY4drgbk1f0xvzML9qKPe0GZhEV9b7XupNp",
 };
 
 const URL_TEMPLATES = {
@@ -92,17 +87,6 @@ async function shortenUrl(provider, targetUrl) {
   return shortUrl;
 }
 
-async function verifyTurnstile(token) {
-  const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `secret=${CONFIG.TURNSTILE_SECRET}&response=${token}`
-  });
-  
-  const data = await res.json();
-  return data.success;
-}
-
 export async function onRequest(context) {
   const request = context.request;
   const corsHeaders = {
@@ -163,7 +147,7 @@ export async function onRequest(context) {
     if (!saveRes.ok) throw new Error("Không thể lưu Key vào cơ sở dữ liệu!");
 
     // 6. Tạo link đích và thực hiện rút gọn link
-    const callbackUrl = config.CallbackUrl || "https://gamebooster.thedev.me/getkey";
+    const callbackUrl = config.CallbackUrl || "https://minhmodvipp.pages.dev/getkey";
     const separator = callbackUrl.includes('?') ? '&' : '?';
     const finalUrl = `${callbackUrl}${separator}key=${encodeURIComponent(key)}`;
 
