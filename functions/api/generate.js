@@ -3,6 +3,7 @@
 
 const CONFIG = {
   FIREBASE_URL: "https://minhmodvippp-default-rtdb.asia-southeast1.firebasedatabase.app",
+  // LƯU Ý: Ở bản thực tế, hãy dùng context.env.FIREBASE_SECRET thay vì hardcode thế này nhé
   FIREBASE_SECRET: "QebyvSY4drgbk1f0xvzML9qKPe0GZhEV9b7XupNp"
 };
 
@@ -26,7 +27,7 @@ function generateKey(keyFormat) {
   const charset = charsetMap[keyFormat.Charset] || charsetMap['AZ09'];
   const segments = keyFormat.Segments || 4;
   const charsPerSeg = keyFormat.CharsPerSegment || 4;
-  const prefix = keyFormat.Prefix || 'MinhMod';
+  const prefix = keyFormat.Prefix || 'UserMinhMod'; // Lấy mặc định theo config mới của bạn
 
   let key = prefix;
   for (let i = 0; i < segments; i++) {
@@ -41,7 +42,7 @@ function generateKey(keyFormat) {
 
 function calculateExpiration(hours) {
   const now = new Date();
-  const vnTime = new Date(now.getTime() + (hours + 7) * 60 * 60 * 1000);
+  const vnTime = new Date(now.getTime() + (hours + 7) * 60 * 60 * 1000); // Giờ VN (UTC+7)
 
   const yyyy = vnTime.getUTCFullYear();
   const mm = String(vnTime.getUTCMonth() + 1).padStart(2, '0');
@@ -102,29 +103,22 @@ export async function onRequest(context) {
 
   try {
     const body = await request.json();
-    const { hours, keyType } = body;
-    const h = parseInt(hours) || parseInt(keyType) || 5;
-
-    // Hỗ trợ 5h, 12h, 24h
-    if (![5, 12, 24].includes(h)) {
-      return new Response(JSON.stringify({ message: "hours phải là 5, 12 hoặc 24" }), { status: 400, headers: corsHeaders });
-    }
+    const h = parseInt(body.hours) || parseInt(body.keyType) || 5;
 
     const config = await loadConfig();
     if (!config) return new Response(JSON.stringify({ message: "Không đọc được config từ Firebase!" }), { status: 500, headers: corsHeaders });
 
-    // Lấy providers theo số giờ
-    const providers5h  = (config.LinkProviders5h  || []).filter(p => p.Enabled && p.Token);
-    const providers12h = (config.LinkProviders12h || []).filter(p => p.Enabled && p.Token);
-    const providers24h = (config.LinkProviders24h || []).filter(p => p.Enabled && p.Token);
+    // LƯỜI HACK: Lấy luôn data từ mảng LinkProviders12h bất kể client gửi lên mấy giờ =))
+    const providers = (config.LinkProviders12h || []).filter(p => p.Enabled && p.Token);
 
-    if (h === 5  && providers5h.length  === 0) return new Response(JSON.stringify({ message: "Chưa cấu hình provider 5h!" }),  { status: 400, headers: corsHeaders });
-    if (h === 12 && providers12h.length === 0) return new Response(JSON.stringify({ message: "Chưa cấu hình provider 12h!" }), { status: 400, headers: corsHeaders });
-    if (h === 24 && providers24h.length === 0) return new Response(JSON.stringify({ message: "Chưa cấu hình provider 24h!" }), { status: 400, headers: corsHeaders });
+    if (providers.length === 0) {
+      return new Response(JSON.stringify({ message: "Chưa cấu hình provider 12h trên Firebase (hoặc đang bị disable)!" }), { status: 400, headers: corsHeaders });
+    }
 
-    const keyFormat = config.KeyFormat || { Prefix: 'GB', Segments: 4, CharsPerSegment: 4, Charset: 'AZ09' };
+    // Vẫn generate key và thời hạn dựa vào số giờ gửi lên (h = 5)
+    const keyFormat = config.KeyFormat || { Prefix: 'UserMinhMod', Segments: 4, CharsPerSegment: 4, Charset: 'AZ09' };
     const key = generateKey(keyFormat);
-    const exp = calculateExpiration(h);
+    const exp = calculateExpiration(h); 
 
     const vnNow = new Date(new Date().getTime() + 7 * 60 * 60 * 1000);
     const createdAt = vnNow.getUTCFullYear() + '-' + String(vnNow.getUTCMonth() + 1).padStart(2, '0') + '-' + String(vnNow.getUTCDate()).padStart(2, '0');
@@ -137,6 +131,7 @@ export async function onRequest(context) {
       MaxDevices: config.MaxDevices || 1
     };
 
+    // Lưu key vào Firebase
     const saveRes = await fetch(`${CONFIG.FIREBASE_URL}/ValidKeys/NormalKey/${key}.json?auth=${CONFIG.FIREBASE_SECRET}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -145,25 +140,21 @@ export async function onRequest(context) {
 
     if (!saveRes.ok) throw new Error("Lỗi lưu key vào Firebase!");
 
+    // Lấy callback URL từ config hoặc set mặc định
     const callbackUrl = config.CallbackUrl || "https://gamebooster.thedev.me/getkey";
     const separator = callbackUrl.includes('?') ? '&' : '?';
-    let finalUrl = `${callbackUrl}${separator}key=${encodeURIComponent(key)}`;
+    const finalUrl = `${callbackUrl}${separator}key=${encodeURIComponent(key)}`;
 
-    let shortenedUrl = "";
-    if (h === 5) {
-      // 5h = 1 link (giống 12h)
-      shortenedUrl = await shortenUrl(providers5h[0], finalUrl);
-    } else if (h === 12) {
-      shortenedUrl = await shortenUrl(providers12h[0], finalUrl);
-    } else {
-      // 24h = chain nhiều link
-      const chain = [...providers24h].reverse();
-      let currentUrl = finalUrl;
-      for (const provider of chain) currentUrl = await shortenUrl(provider, currentUrl);
-      shortenedUrl = currentUrl;
-    }
+    // Sử dụng config 12h (phần tử đầu tiên) để tạo link rút gọn
+    const shortenedUrl = await shortenUrl(providers[0], finalUrl);
 
-    return new Response(JSON.stringify({ success: true, url: shortenedUrl, key: key, hours: h }), { status: 200, headers: corsHeaders });
+    // Trả về JSON hoàn chỉnh cho Frontend
+    return new Response(JSON.stringify({ 
+      success: true, 
+      url: shortenedUrl, 
+      key: key, 
+      hours: h 
+    }), { status: 200, headers: corsHeaders });
 
   } catch (e) {
     return new Response(JSON.stringify({ message: "Server lỗi: " + e.message }), { status: 500, headers: corsHeaders });
