@@ -121,11 +121,6 @@ export async function onRequest(context) {
     // Lấy số giờ từ frontend, mặc định là 5 nếu không có
     const h = parseInt(hours) || 5;
 
-    // 1. Kiểm tra Captcha
-    if (!token) return new Response(JSON.stringify({ message: "Vui lòng hoàn thành Captcha!" }), { status: 400, headers: corsHeaders });
-    const isValid = await verifyTurnstile(token);
-    if (!isValid) return new Response(JSON.stringify({ message: "Captcha không hợp lệ hoặc đã hết hạn!" }), { status: 403, headers: corsHeaders });
-
     // 2. Load Config từ Firebase
     const config = await loadConfig();
     if (!config) return new Response(JSON.stringify({ message: "Lỗi hệ thống: Không có config!" }), { status: 500, headers: corsHeaders });
