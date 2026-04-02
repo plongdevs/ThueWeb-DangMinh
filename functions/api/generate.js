@@ -26,7 +26,7 @@ function generateKey(keyFormat) {
   const charset = charsetMap[keyFormat.Charset] || charsetMap['AZ09'];
   const segments = keyFormat.Segments || 4;
   const charsPerSeg = keyFormat.CharsPerSegment || 4;
-  const prefix = keyFormat.Prefix || 'GB';
+  const prefix = keyFormat.Prefix || 'MinhMod';
 
   let key = prefix;
   for (let i = 0; i < segments; i++) {
@@ -39,13 +39,10 @@ function generateKey(keyFormat) {
   return key;
 }
 
-// --- HÀM TÍNH THỜI GIAN ĐÃ FIX UTC+7 ---
 function calculateExpiration(hours) {
   const now = new Date();
-  // Lấy timestamp hiện tại, cộng thêm số giờ của Key + 7 giờ (múi giờ VN)
   const vnTime = new Date(now.getTime() + (hours + 7) * 60 * 60 * 1000);
 
-  // Sử dụng getUTC để lấy dữ liệu từ mốc thời gian đã được offset +7
   const yyyy = vnTime.getUTCFullYear();
   const mm = String(vnTime.getUTCMonth() + 1).padStart(2, '0');
   const dd = String(vnTime.getUTCDate()).padStart(2, '0');
@@ -69,27 +66,25 @@ async function shortenUrl(provider, targetUrl) {
   if (!template) throw new Error(`Unknown provider: ${provider.Kind}`);
 
   const apiUrl = template(provider.Token, targetUrl);
-  
-  const res = await fetch(apiUrl, { 
+
+  const res = await fetch(apiUrl, {
     method: 'GET',
     headers: { 'Accept': 'application/json' }
   });
-  
+
   if (!res.ok) throw new Error(`HTTP ${res.status} from ${provider.Kind}`);
-  
+
   const data = await res.json();
-  
-  const shortUrl = data.shortenedUr1 || 
-                  data.shortened || 
-                  data.short_url || 
-                  data.url || 
+
+  const shortUrl = data.shortenedUr1 ||
+                  data.shortened ||
+                  data.short_url ||
+                  data.url ||
                   data.shortenedUrl ||
                   data.link;
-                  
-  if (!shortUrl) {
-    throw new Error(`No shortened URL in ${provider.Kind} response`);
-  }
-  
+
+  if (!shortUrl) throw new Error(`No shortened URL in ${provider.Kind} response`);
+
   return shortUrl;
 }
 
@@ -108,16 +103,22 @@ export async function onRequest(context) {
   try {
     const body = await request.json();
     const { hours, keyType } = body;
-    const h = parseInt(hours) || parseInt(keyType) || 24;
+    const h = parseInt(hours) || parseInt(keyType) || 5;
 
-    if (h !== 12 && h !== 24) return new Response(JSON.stringify({ message: "hours phải là 12 hoặc 24" }), { status: 400, headers: corsHeaders });
+    // Hỗ trợ 5h, 12h, 24h
+    if (![5, 12, 24].includes(h)) {
+      return new Response(JSON.stringify({ message: "hours phải là 5, 12 hoặc 24" }), { status: 400, headers: corsHeaders });
+    }
 
     const config = await loadConfig();
     if (!config) return new Response(JSON.stringify({ message: "Không đọc được config từ Firebase!" }), { status: 500, headers: corsHeaders });
 
+    // Lấy providers theo số giờ
+    const providers5h  = (config.LinkProviders5h  || []).filter(p => p.Enabled && p.Token);
     const providers12h = (config.LinkProviders12h || []).filter(p => p.Enabled && p.Token);
     const providers24h = (config.LinkProviders24h || []).filter(p => p.Enabled && p.Token);
 
+    if (h === 5  && providers5h.length  === 0) return new Response(JSON.stringify({ message: "Chưa cấu hình provider 5h!" }),  { status: 400, headers: corsHeaders });
     if (h === 12 && providers12h.length === 0) return new Response(JSON.stringify({ message: "Chưa cấu hình provider 12h!" }), { status: 400, headers: corsHeaders });
     if (h === 24 && providers24h.length === 0) return new Response(JSON.stringify({ message: "Chưa cấu hình provider 24h!" }), { status: 400, headers: corsHeaders });
 
@@ -125,7 +126,6 @@ export async function onRequest(context) {
     const key = generateKey(keyFormat);
     const exp = calculateExpiration(h);
 
-    // Lấy ngày tạo chuẩn VN để đồng bộ
     const vnNow = new Date(new Date().getTime() + 7 * 60 * 60 * 1000);
     const createdAt = vnNow.getUTCFullYear() + '-' + String(vnNow.getUTCMonth() + 1).padStart(2, '0') + '-' + String(vnNow.getUTCDate()).padStart(2, '0');
 
@@ -142,7 +142,7 @@ export async function onRequest(context) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(keyData)
     });
-    
+
     if (!saveRes.ok) throw new Error("Lỗi lưu key vào Firebase!");
 
     const callbackUrl = config.CallbackUrl || "https://gamebooster.thedev.me/getkey";
@@ -150,9 +150,13 @@ export async function onRequest(context) {
     let finalUrl = `${callbackUrl}${separator}key=${encodeURIComponent(key)}`;
 
     let shortenedUrl = "";
-    if (h === 12) {
+    if (h === 5) {
+      // 5h = 1 link (giống 12h)
+      shortenedUrl = await shortenUrl(providers5h[0], finalUrl);
+    } else if (h === 12) {
       shortenedUrl = await shortenUrl(providers12h[0], finalUrl);
     } else {
+      // 24h = chain nhiều link
       const chain = [...providers24h].reverse();
       let currentUrl = finalUrl;
       for (const provider of chain) currentUrl = await shortenUrl(provider, currentUrl);

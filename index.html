@@ -1,291 +1,745 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DangMinh - Key Generator</title>
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg: #050508;
-      --card: rgba(20, 20, 25, 0.6);
-      --accent: #00e5ff;
-      --text: #ffffff;
-      --muted: #94a3b8;
-      --red: #ff2d55;
-      --border: rgba(255, 255, 255, 0.08);
-      --gold: #ffd700;
-      --green: #22c55e;
-    }
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>MinhMod — Trang Web Tạo Key</title>
+		<link
+			href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			:root {
+				--primary: #edd988;
+				--primary-dim: #c8b85e;
+				--primary-glow: rgba(237, 217, 136, 0.25);
+				--primary-tint: rgba(237, 217, 136, 0.08);
+				--bg: #131108;
+				--surface: #1d1a0e;
+				--surface-cont: #252118;
+				--surface-high: #2e2a1c;
+				--on-surface: #ede3c6;
+				--on-surface-var: #9e9474;
+				--outline: rgba(237, 217, 136, 0.18);
+				--m3: cubic-bezier(0.2, 0, 0, 1);
+				--bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+			}
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+			*,
+			*::before,
+			*::after {
+				box-sizing: border-box;
+				margin: 0;
+				padding: 0;
+			}
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Inter', sans-serif;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
+			body {
+				background: var(--bg);
+				color: var(--on-surface);
+				font-family: "DM Sans", sans-serif;
+				min-height: 100vh;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				overflow: hidden;
+				position: relative;
+			}
 
-    .card {
-      width: 100%;
-      max-width: 480px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 32px 28px;
-      backdrop-filter: blur(24px);
-    }
+			/* ── Ambient Background Glow ── */
+			body::before {
+				content: "";
+				position: fixed;
+				inset: 0;
+				background:
+					radial-gradient(
+						ellipse 60% 40% at 20% 80%,
+						rgba(237, 217, 136, 0.07) 0%,
+						transparent 70%
+					),
+					radial-gradient(
+						ellipse 40% 60% at 80% 20%,
+						rgba(237, 217, 136, 0.05) 0%,
+						transparent 70%
+					);
+				pointer-events: none;
+				z-index: 0;
+			}
 
-    .header {
-      text-align: center;
-      margin-bottom: 28px;
-    }
+			/* ── Floating Particles ── */
+			.particles {
+				position: fixed;
+				inset: 0;
+				pointer-events: none;
+				z-index: 1;
+				overflow: hidden;
+			}
+			.particle {
+				position: absolute;
+				border-radius: 50%;
+				background: var(--primary);
+				animation: floatUp linear infinite;
+				opacity: 0;
+			}
 
-    .logo {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 1.8rem;
-      color: var(--accent);
-      text-shadow: 0 0 20px var(--accent);
-      letter-spacing: 4px;
-    }
+			@keyframes floatUp {
+				0% {
+					transform: translateY(110vh) scale(0);
+					opacity: 0;
+				}
+				10% {
+					opacity: 0.4;
+				}
+				90% {
+					opacity: 0.15;
+				}
+				100% {
+					transform: translateY(-10vh) scale(1.5);
+					opacity: 0;
+				}
+			}
 
-    .tagline {
-      font-size: 0.75rem;
-      color: var(--muted);
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      font-family: 'Share Tech Mono', monospace;
-    }
+			/* ── Curtain Split Entrance ── */
+			.curtain-half {
+				position: fixed;
+				left: 0;
+				width: 100%;
+				z-index: 9999;
+				overflow: hidden;
+			}
+			.curtain-top {
+				top: 0;
+				height: 50vh;
+				background: linear-gradient(
+					160deg,
+					#f5e89a 0%,
+					#edd988 40%,
+					#c8b85e 100%
+				);
+				animation: curtainUp 0.72s 0.15s cubic-bezier(0.76, 0, 0.24, 1)
+					both;
+			}
+			.curtain-bottom {
+				bottom: 0;
+				height: 50vh;
+				background: linear-gradient(
+					340deg,
+					#f5e89a 0%,
+					#edd988 40%,
+					#c8b85e 100%
+				);
+				animation: curtainDown 0.72s 0.15s
+					cubic-bezier(0.76, 0, 0.24, 1) both;
+			}
+			.curtain-top::after,
+			.curtain-bottom::after {
+				content: "";
+				position: absolute;
+				top: 0;
+				left: -80%;
+				width: 50%;
+				height: 100%;
+				background: linear-gradient(
+					90deg,
+					transparent,
+					rgba(255, 255, 255, 0.35),
+					transparent
+				);
+				animation: curtainShine 0.55s 0.05s ease-out forwards;
+			}
+			.curtain-top::before {
+				content: "";
+				position: absolute;
+				bottom: 0;
+				left: 0;
+				width: 100%;
+				height: 2px;
+				background: linear-gradient(
+					90deg,
+					transparent,
+					rgba(255, 255, 255, 0.8),
+					transparent
+				);
+			}
+			.curtain-bottom::before {
+				content: "";
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 2px;
+				background: linear-gradient(
+					90deg,
+					transparent,
+					rgba(255, 255, 255, 0.8),
+					transparent
+				);
+			}
+			@keyframes curtainUp {
+				from {
+					transform: translateY(0);
+				}
+				to {
+					transform: translateY(-105%);
+				}
+			}
+			@keyframes curtainDown {
+				from {
+					transform: translateY(0);
+				}
+				to {
+					transform: translateY(105%);
+				}
+			}
+			@keyframes curtainShine {
+				to {
+					left: 130%;
+				}
+			}
 
-    .sec-label {
-      font-size: 0.62rem;
-      font-weight: 700;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      margin-bottom: 10px;
-      font-family: 'Share Tech Mono', monospace;
-    }
+			/* ── Main Content ── */
+			.main-content {
+				width: 100%;
+				max-width: 400px;
+				padding: 20px;
+				position: relative;
+				z-index: 2;
+				opacity: 0;
+				animation: revealCard 0.9s 0.7s var(--bounce) forwards;
+			}
 
-    .key-info {
-      background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 140, 0, 0.1));
-      border: 2px solid var(--gold);
-      border-radius: 14px;
-      padding: 20px 16px;
-      text-align: center;
-      margin-bottom: 22px;
-      box-shadow: 0 0 20px rgba(255, 215, 0, 0.15);
-    }
+			@keyframes revealCard {
+				from {
+					opacity: 0;
+					transform: translateY(32px) scale(0.92);
+				}
+				to {
+					opacity: 1;
+					transform: translateY(0) scale(1);
+				}
+			}
 
-    .key-duration {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 1.8rem;
-      font-weight: 700;
-      color: var(--gold);
-      text-shadow: 0 0 14px rgba(255, 215, 0, 0.5);
-      margin-bottom: 8px;
-    }
+			/* ── Card ── */
+			.card {
+				background: var(--surface-cont);
+				border-radius: 32px;
+				border: 1px solid var(--outline);
+				padding: 36px 28px 28px;
+				text-align: center;
+				box-shadow:
+					0 0 0 1px rgba(237, 217, 136, 0.04),
+					0 8px 32px rgba(0, 0, 0, 0.5),
+					0 0 60px rgba(237, 217, 136, 0.06);
+				position: relative;
+				overflow: hidden;
+			}
 
-    .key-links {
-      font-size: 0.75rem;
-      color: var(--muted);
-      font-family: 'Share Tech Mono', monospace;
-      letter-spacing: 1px;
-    }
+			/* card top shimmer line */
+			.card::before {
+				content: "";
+				position: absolute;
+				top: 0;
+				left: 10%;
+				right: 10%;
+				height: 1px;
+				background: linear-gradient(
+					90deg,
+					transparent,
+					var(--primary),
+					transparent
+				);
+				opacity: 0.5;
+			}
 
-    .divider {
-      height: 1px;
-      background: linear-gradient(90deg, transparent, var(--border), transparent);
-      margin: 20px 0;
-    }
+			/* ── Logo ── */
+			.logo {
+				font-family: "Playfair Display", serif;
+				font-size: 2.2rem;
+				font-weight: 900;
+				color: var(--primary);
+				letter-spacing: -0.5px;
+				margin-bottom: 6px;
+				position: relative;
+				display: inline-block;
+				animation: logoShimmer 3s 3.5s ease infinite;
+			}
 
-    .input-group {
-      margin-bottom: 22px;
-    }
+			@keyframes logoShimmer {
+				0%,
+				100% {
+					text-shadow: 0 0 0 transparent;
+				}
+				50% {
+					text-shadow: 0 0 24px rgba(237, 217, 136, 0.6);
+				}
+			}
 
-    .input-label {
-      font-size: 0.75rem;
-      font-weight: 700;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      margin-bottom: 10px;
-      font-family: 'Share Tech Mono', monospace;
-      display: block;
-    }
+			.tagline {
+				font-size: 0.8rem;
+				font-weight: 500;
+				letter-spacing: 2px;
+				color: var(--on-surface-var);
+				text-transform: uppercase;
+				margin-bottom: 28px;
+			}
 
-    .input-field {
-      width: 100%;
-      padding: 14px 16px;
-      border: 2px solid var(--border);
-      border-radius: 12px;
-      background: rgba(0, 0, 0, 0.4);
-      color: var(--text);
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.95rem;
-      transition: 0.2s;
-    }
+			/* ── Key Info Box ── */
+			.key-info {
+				background: var(--surface-high);
+				border: 1px solid var(--outline);
+				border-radius: 24px;
+				padding: 28px 20px;
+				margin-bottom: 20px;
+				position: relative;
+				overflow: hidden;
+				transition:
+					transform 0.35s var(--m3),
+					box-shadow 0.35s var(--m3);
+				cursor: default;
+			}
 
-    .input-field:focus {
-      outline: none;
-      border-color: var(--gold);
-      box-shadow: 0 0 12px rgba(255, 215, 0, 0.2);
-    }
+			.key-info::after {
+				content: "";
+				position: absolute;
+				inset: 0;
+				background: radial-gradient(
+					circle at 50% 120%,
+					rgba(237, 217, 136, 0.12),
+					transparent 65%
+				);
+				opacity: 0;
+				transition: opacity 0.4s var(--m3);
+			}
 
-    .input-field::placeholder {
-      color: var(--muted);
-    }
+			.key-info:hover {
+				transform: translateY(-6px);
+				box-shadow:
+					0 12px 32px rgba(0, 0, 0, 0.4),
+					0 0 40px rgba(237, 217, 136, 0.1);
+			}
+			.key-info:hover::after {
+				opacity: 1;
+			}
 
-    .btn-gen {
-      width: 100%;
-      padding: 16px;
-      border: none;
-      border-radius: 14px;
-      background: linear-gradient(135deg, var(--gold) 0%, #ff8c00 100%);
-      color: #000;
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 1rem;
-      font-weight: 700;
-      letter-spacing: 2px;
-      cursor: pointer;
-      transition: 0.2s;
-      box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
-    }
+			/* hour counter */
+			.hour-wrap {
+				display: flex;
+				align-items: baseline;
+				justify-content: center;
+				gap: 6px;
+				margin-bottom: 8px;
+			}
 
-    .btn-gen:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(255, 215, 0, 0.4);
-    }
+			.big-hour {
+				font-family: "Playfair Display", serif;
+				font-size: 4.5rem;
+				font-weight: 900;
+				line-height: 1;
+				color: var(--primary);
+				position: relative;
+			}
 
-    .btn-gen:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
+			.hour-unit {
+				font-size: 1.3rem;
+				font-weight: 600;
+				color: var(--primary-dim);
+				margin-bottom: 4px;
+			}
 
-    .btn-spinner {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(0, 0, 0, 0.3);
-      border-top-color: #000;
-      border-radius: 50%;
-      animation: spin 0.6s linear infinite;
-      vertical-align: middle;
-      margin-right: 8px;
-    }
+			.desc-text {
+				font-size: 0.82rem;
+				color: var(--on-surface-var);
+				letter-spacing: 0.5px;
+			}
 
-    @keyframes spin { to { transform: rotate(360deg); } }
+			/* divider */
+			.divider {
+				height: 1px;
+				margin: 20px 0;
+				background: linear-gradient(
+					90deg,
+					transparent,
+					var(--outline),
+					transparent
+				);
+			}
 
-    .message-box {
-      margin-top: 16px;
-      padding: 12px 16px;
-      border-radius: 12px;
-      font-size: 0.85rem;
-      font-family: 'Share Tech Mono', monospace;
-      display: none;
-    }
+			/* stats row */
+			.stats {
+				display: flex;
+				gap: 0;
+				margin-bottom: 20px;
+			}
+			.stat {
+				flex: 1;
+				text-align: center;
+				padding: 12px 8px;
+				border-right: 1px solid var(--outline);
+			}
+			.stat:last-child {
+				border-right: none;
+			}
+			.stat-val {
+				font-family: "Playfair Display", serif;
+				font-size: 1.3rem;
+				font-weight: 700;
+				color: var(--primary);
+			}
+			.stat-lbl {
+				font-size: 0.72rem;
+				color: var(--on-surface-var);
+				margin-top: 2px;
+			}
 
-    .message-box.error {
-      background: rgba(255, 45, 85, 0.08);
-      border: 1px solid rgba(255, 45, 85, 0.3);
-      color: var(--red);
-    }
+			/* ── Buttons ── */
+			.btn-generate {
+				width: 100%;
+				padding: 18px;
+				border: none;
+				border-radius: 100px;
+				background: var(--primary);
+				color: #1a1600;
+				font-family: "DM Sans", sans-serif;
+				font-size: 1rem;
+				font-weight: 700;
+				letter-spacing: 0.3px;
+				cursor: pointer;
+				position: relative;
+				overflow: hidden;
+				transition:
+					transform 0.2s var(--m3),
+					box-shadow 0.3s var(--m3),
+					filter 0.3s;
+			}
 
-    .message-box.success {
-      background: rgba(34, 197, 94, 0.08);
-      border: 1px solid rgba(34, 197, 94, 0.3);
-      color: var(--green);
-    }
+			.btn-generate::before {
+				content: "";
+				position: absolute;
+				inset: 0;
+				background: linear-gradient(
+					135deg,
+					rgba(255, 255, 255, 0.25) 0%,
+					transparent 60%
+				);
+				opacity: 0;
+				transition: opacity 0.3s;
+			}
 
-    .message-box.show { display: block; }
-  </style>
-</head>
+			.btn-generate:hover {
+				transform: translateY(-2px);
+				box-shadow:
+					0 8px 28px rgba(237, 217, 136, 0.45),
+					0 2px 8px rgba(0, 0, 0, 0.3);
+				filter: brightness(1.08);
+			}
+			.btn-generate:hover::before {
+				opacity: 1;
+			}
 
-<body>
-  <div class="card">
-    <div class="header">
-      <span class="logo">Admin DangMinh Key⛈️</span>
-    </div>
+			.btn-generate:active {
+				transform: scale(0.97);
+				box-shadow: 0 2px 8px rgba(237, 217, 136, 0.3);
+				transition-duration: 0.1s;
+			}
 
-    <div class="key-info">
-      <div class="key-duration">24H</div>
-      <div class="key-links">✦ 2 LINKS ✦</div>
-    </div>
+			/* ripple */
+			.ripple {
+				position: absolute;
+				border-radius: 50%;
+				background: rgba(255, 255, 255, 0.4);
+				width: 10px;
+				height: 10px;
+				transform: scale(0);
+				pointer-events: none;
+				animation: rippleAnim 0.6s linear;
+			}
+			@keyframes rippleAnim {
+				to {
+					transform: scale(40);
+					opacity: 0;
+				}
+			}
 
-    <div class="divider"></div>
+			/* spinner inside btn */
+			.btn-spinner {
+				display: none;
+				width: 20px;
+				height: 20px;
+				border: 3px solid rgba(26, 22, 0, 0.3);
+				border-top-color: #1a1600;
+				border-radius: 50%;
+				animation: spin 0.7s linear infinite;
+				margin: 0 auto;
+			}
+			.btn-text {
+				display: block;
+			}
+			@keyframes spin {
+				to {
+					transform: rotate(360deg);
+				}
+			}
 
-    <button class="btn-gen" id="btnGen" onclick="generate()">
-      <span class="btn-text">[ TẠO KEY 24H ]</span>
-    </button>
+			.btn-generate.loading .btn-text {
+				display: none;
+			}
+			.btn-generate.loading .btn-spinner {
+				display: block;
+			}
 
-    <div class="message-box" id="messageBox"></div>
-  </div>
+			/* ── Footer Note ── */
+			.footer-note {
+				margin-top: 18px;
+				font-size: 0.75rem;
+				color: var(--on-surface-var);
+				text-align: center;
+				line-height: 1.6;
+			}
 
-  <script>
-    const API_ENDPOINT = "/api/generate";
-    const selectedHours = 24;
+			/* ── Stagger animations on children ── */
+			.card > * {
+				animation: staggerIn 0.5s var(--m3) both;
+			}
+			.card > :nth-child(1) {
+				animation-delay: 0.9s;
+			}
+			.card > :nth-child(2) {
+				animation-delay: 1.05s;
+			}
+			.card > :nth-child(3) {
+				animation-delay: 1.15s;
+			}
+			.card > :nth-child(4) {
+				animation-delay: 1.25s;
+			}
+			.card > :nth-child(5) {
+				animation-delay: 1.35s;
+			}
+			.card > :nth-child(6) {
+				animation-delay: 1.45s;
+			}
+			.card > :nth-child(7) {
+				animation-delay: 1.55s;
+			}
 
-    async function generate() {
-      const btn = document.getElementById('btnGen');
-      const msgBox = document.getElementById('messageBox');
+			@keyframes staggerIn {
+				from {
+					opacity: 0;
+					transform: translateY(10px);
+				}
+				to {
+					opacity: 1;
+					transform: translateY(0);
+				}
+			}
 
-      msgBox.className = 'message-box';
-      msgBox.textContent = '';
+			/* ── Pulse ring on key-info ── */
+			@keyframes pulseRing {
+				0% {
+					box-shadow: 0 0 0 0 rgba(237, 217, 136, 0.25);
+				}
+				70% {
+					box-shadow: 0 0 0 16px rgba(237, 217, 136, 0);
+				}
+				100% {
+					box-shadow: 0 0 0 0 rgba(237, 217, 136, 0);
+				}
+			}
+			.key-info {
+				animation: pulseRing 3s 2s ease infinite;
+			}
 
-      btn.disabled = true;
-      btn.innerHTML = '<span class="btn-spinner"></span> ĐANG XỬ LÝ...';
+			/* ── Toast ── */
+			.toast {
+				position: fixed;
+				bottom: 32px;
+				left: 50%;
+				transform: translateX(-50%) translateY(20px);
+				background: var(--surface-high);
+				color: var(--on-surface);
+				padding: 12px 24px;
+				border-radius: 100px;
+				font-size: 0.85rem;
+				font-weight: 500;
+				border: 1px solid var(--outline);
+				box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+				opacity: 0;
+				pointer-events: none;
+				transition:
+					opacity 0.3s var(--m3),
+					transform 0.3s var(--m3);
+				z-index: 1000;
+			}
+			.toast.show {
+				opacity: 1;
+				transform: translateX(-50%) translateY(0);
+			}
+			.footer {
+				margin-top: 20px;
+				padding-top: 16px;
+				border-top: 1px solid var(--outline);
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				gap: 8px;
+				font-size: 0.75rem;
+				color: var(--on-surface-var);
+			}
+			.footer a {
+				color: var(--primary);
+				text-decoration: none;
+			}
+			.footer a:hover {
+				text-decoration: underline;
+			}
+		</style>
+	</head>
+	<body>
+		<!-- Floating Particles -->
+		<div class="particles" id="particles"></div>
 
-      try {
-        const res = await fetch(API_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ hours: selectedHours })
-        });
+		<!-- Curtain Split Entrance -->
+		<div class="curtain-half curtain-top"></div>
+		<div class="curtain-half curtain-bottom"></div>
 
-        const text = await res.text();
-        if (!text) {
-          throw new Error('API trả về response rỗng');
-        }
+		<!-- Main UI -->
+		<div class="main-content">
+			<div class="card">
+				<div class="logo">UserMinhMod</div>
+				<div class="tagline">Hệ thống tạo key tự động</div>
 
-        let data;
-        try {
-          data = JSON.parse(text);
-        } catch (e) {
-          console.error('Raw response:', text);
-          throw new Error('API trả về không phải JSON: ' + text.substring(0, 100));
-        }
+				<div class="key-info">
+					<div class="hour-wrap">
+						<span class="big-hour" id="hourCount">5</span>
+						<span class="hour-unit">Giờ</span>
+					</div>
+					<div class="desc-text">
+						Hiệu lực sử dụng từ khi kích hoạt
+					</div>
+				</div>
 
-        if (!res.ok || !data.success) {
-          throw new Error(data.message || 'Lỗi tạo key');
-        }
+				<div class="divider"></div>
 
-        window.location.href = data.url;
+				<div class="stats">
+					<div class="stat">
+						<div class="stat-val">1</div>
+						<div class="stat-lbl">Thiết bị</div>
+					</div>
+					<div class="stat">
+						<div class="stat-val">5H</div>
+						<div class="stat-lbl">Thời hạn</div>
+					</div>
+					<div class="stat">
+						<div class="stat-val">∞</div>
+						<div class="stat-lbl">Lần Tạo</div>
+					</div>
+				</div>
 
-      } catch (err) {
-        showError('❌ ' + err.message);
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<span class="btn-text">[ TẠO KEY 24H ]</span>';
-      }
-    }
+				<button
+					class="btn-generate"
+					id="generateBtn"
+					onclick="handleGenerate(event)"
+				>
+					<span class="btn-text">✦ Bắt đầu tạo Key</span>
+					<div class="btn-spinner"></div>
+				</button>
 
-    function showError(msg) {
-      const box = document.getElementById('messageBox');
-      box.textContent = msg;
-      box.className = 'message-box error show';
-    }
+				<div class="footer-note">
+					Nhấn bắt đầu để nhận ngay key của bạn
+					<div class="footer">
+						<span>© 2025 UserMinhMod</span>
+						<span>·</span>
+						<span>All rights reserved</span>
+					</div>
+				</div>
+			</div>
+		</div>
 
-    function showSuccess(msg) {
-      const box = document.getElementById('messageBox');
-      box.textContent = msg;
-      box.className = 'message-box success show';
-    }
-  </script>
-</body>
+		<div class="toast" id="toast"></div>
+
+		<script>
+						/* ── Particles ── */
+						const container = document.getElementById("particles");
+						for (let i = 0; i < 28; i++) {
+							const p = document.createElement("div");
+							p.className = "particle";
+							const s = Math.random() * 5 + 2;
+							p.style.cssText = `
+			        width:${s}px; height:${s}px;
+			        left:${Math.random() * 100}%;
+			        animation-duration:${6 + Math.random() * 10}s;
+			        animation-delay:${Math.random() * 12}s;
+			        opacity:0;
+			      `;
+							container.appendChild(p);
+						}
+
+						/* ── Bubbles in loader ── */
+						// removed - no loader anymore
+
+						/* ── Ripple effect ── */
+						document
+							.getElementById("generateBtn")
+							.addEventListener("mousedown", function (e) {
+								const r = document.createElement("span");
+								r.className = "ripple";
+								const rect = this.getBoundingClientRect();
+								r.style.left = e.clientX - rect.left - 5 + "px";
+								r.style.top = e.clientY - rect.top - 5 + "px";
+								this.appendChild(r);
+								setTimeout(() => r.remove(), 650);
+							});
+
+						/* ── Hour counter animate on reveal ── */
+						function animateHour() {
+							const el = document.getElementById("hourCount");
+							let n = 0;
+							const target = 5;
+							const step = () => {
+								n++;
+								el.textContent = n;
+								if (n < target) {
+									setTimeout(step, 80);
+								}
+							};
+							setTimeout(step, 1200);
+						}
+						animateHour();
+
+						/* ── Toast ── */
+						function showToast(msg) {
+							const t = document.getElementById("toast");
+							t.textContent = msg;
+							t.classList.add("show");
+							setTimeout(() => t.classList.remove("show"), 2800);
+						}
+
+						/* ── Generate handler ── */
+						function handleGenerate(e) {
+							const btn = document.getElementById("generateBtn");
+							btn.classList.add("loading");
+							btn.disabled = true;
+
+							// Simulate API call — replace with real fetch to /api/generate
+			setTimeout(async () => {
+			  try {
+			    const res = await fetch('/api/generate', {
+			      method: 'POST',
+			      headers: { 'Content-Type': 'application/json' },
+			      body: JSON.stringify({ hours: 5 })
+			    });
+			    const data = await res.json();
+			    if (data.url) {
+			      window.location.href = data.url; // redirect qua link rút gọn
+			    } else {
+			      showToast('❌ Lỗi: ' + data.message);
+			    }
+			  } catch (e) {
+			    showToast('❌ Không kết nối được server');
+			  } finally {
+			    btn.classList.remove('loading');
+			    btn.disabled = false;
+			  }
+			}, 500);
+		</script>
+	</body>
 </html>
