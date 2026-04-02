@@ -719,27 +719,27 @@
 							btn.classList.add("loading");
 							btn.disabled = true;
 
-							// Simulate API call — replace with real fetch to /api/generate
-			setTimeout(async () => {
-			  try {
-			    const res = await fetch('/api/generate', {
-			      method: 'POST',
-			      headers: { 'Content-Type': 'application/json' },
-			      body: JSON.stringify({ hours: 5 })
-			    });
-			    const data = await res.json();
-			    if (data.url) {
-			      window.location.href = data.url; // redirect qua link rút gọn
-			    } else {
-			      showToast('❌ Lỗi: ' + data.message);
-			    }
-			  } catch (e) {
-			    showToast('❌ Không kết nối được server');
-			  } finally {
-			    btn.classList.remove('loading');
-			    btn.disabled = false;
-			  }
-			}, 500);
-		</script>
+							setTimeout(async () => {
+								try {
+									const res = await fetch('/api/generate', {
+										method: 'POST',
+										headers: { 'Content-Type': 'application/json' },
+										body: JSON.stringify({ hours: 5 })
+									});
+									const data = await res.json();
+									if (data.url) {
+										window.location.href = data.url;
+									} else {
+										showToast('❌ Lỗi: ' + (data.message || 'Không xác định'));
+									}
+								} catch (e) {
+									showToast('❌ Không kết nối được server: ' + e.message);
+								} finally {
+									btn.classList.remove('loading');
+									btn.disabled = false;
+								}
+							}, 500);
+						}
+					</script>
 	</body>
 </html>
